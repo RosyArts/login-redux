@@ -248,7 +248,10 @@
       const strong = document.createElement("strong");
       strong.textContent = entry.username;
       if (entry.username === "TodePond" || entry.username == "Rosy") {
-        strong.style.color = "var(--green)";
+        strong.style.color = "var(--best-colour)";
+      }
+      if (entry.username === "Rosy") {
+        strong.style.color = "var(--red)";
       }
       p.appendChild(strong);
       const br = document.createElement("br");
