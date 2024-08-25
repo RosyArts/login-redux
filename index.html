@@ -208,8 +208,8 @@
 
     const json = await response.json();
     for (const user of json) {
-      const [status, username, timestamp, id] = user;
-      entries.push({ status, username, timestamp: new Date(timestamp), id});
+      const [status, username, timestamp, id, isbanned] = user;
+      entries.push({ status, username, timestamp: new Date(timestamp), id, isbanned});
     }
 
     const sortedEntries = entries.sort((a, b) => b.timestamp - a.timestamp);
@@ -253,6 +253,9 @@
       if (entry.username === "Rosy") {
         strong.style.color = "var(--red)";
       }
+      if (entry.isbanned === 1) {
+        strong.style.color = "var(--shade-5)";
+      }
       p.appendChild(strong);
       const br = document.createElement("br");
       p.appendChild(br);
@@ -263,6 +266,9 @@
       // should wrap long words
       span.style.wordWrap = "break-word";
       span.style.display = "block";
+      if (entry.isbanned === 1) {
+        span.style.color = "var(--shade-5)";
+      }
       p.appendChild(span);
       if (
         document.querySelector("#username")?.value === "TodePond" ||
