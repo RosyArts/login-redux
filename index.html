@@ -208,8 +208,8 @@
 
     const json = await response.json();
     for (const user of json) {
-      const [status, username, timestamp] = user;
-      entries.push({ status, username, timestamp: new Date(timestamp) });
+      const [status, username, timestamp, id] = user;
+      entries.push({ status, username, timestamp: new Date(timestamp), id});
     }
 
     const sortedEntries = entries.sort((a, b) => b.timestamp - a.timestamp);
