@@ -1,25 +1,29 @@
-<html><head><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script data-goatcounter="https://todepond.goatcounter.com/count" async="" src="//gc.zgo.at/count.js"></script>
+<!DOCTYPE html>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
 <title>Login Redux</title>
-<link rel="shortcut icon" href="https://todepond.com/favicon.png">
-<meta property="og:image" content="https://todepond.com/lab/og.png">
-<meta property="og:title" content="Login Redux">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Login Redux">
-<meta name="twitter:description" content="">
-<meta name="twitter:image" content="https://todepond.com/lab/og.png">
+<link rel="shortcut icon" href="/favicon.png" />
+
+<meta property="og:image" content="https://todepond.com/lab/og.png" />
+<meta property="og:title" content="Login Redux" />
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Login Redux" />
+<meta name="twitter:description" content="" />
+<meta name="twitter:image" content="https://todepond.com/lab/og.png" />
 
 <link rel="stylesheet" href="https://todepond.com/style.css">
 <link rel="stylesheet" href="https://www.todepond.com/lab/login/style.css?v=1">
-  
-<h2>Original "<a href=https://www.todepond.com/lab/login/>Login</a>" by TodePond. This site is not affiliated with TodePond</h2> 
 
-</head><body><h1>Login</h1>
-  
-<p>be civil</p>
+<body>
+
+<p>This is a <a href=https://logiverse.social/>Logiverse</a> instance.</p> 
+<p>The <a href="https://mastodon.gamedev.place/@Mittzy">creator</a> of this instance does not understand web development... Excuse the rough edges.</p>
+
+<h1>Login</h1>
 
 <header>
-  <label for="username">Public username</label>
+  <label for="username">Display Name</label>
   <input type="text" id="username" name="username">
   <br><br>
   <label for="password">Password</label>
@@ -50,6 +54,9 @@
   <main></main>
 
 <script type="module">
+  import { config } from './logiverse.js';
+  const PAGE_PATH = '//';
+            
   const refreshSign = document.querySelector("#refresh-sign");
   const loadingFeed = document.querySelector("#loading-feed");
   const usernameInput = document.querySelector("#username");
@@ -81,7 +88,7 @@
     submitButton.textContent = "Logging in...";
 
     loadingFeed.style.display = "block";
-    const response = await fetch("https://mittzy-loginredux_login.web.val.run", {
+    const response = await fetch(config.endpoints.login, {
       method: "POST",
       body: JSON.stringify({ username, password }),
     });
@@ -95,15 +102,55 @@
     } else {
       const header = document.querySelector("header");
       const h1 = document.querySelector("h1");
-      h1.textContent = `Welcome back, ${username}!`;
-      header.innerHTML = `
-        <label>Status</label>
-        <input type="text" id="status" name="status" />
-        <button id="update-status" class="primary">Update status</button>
-        <br /><br />
-        <button onclick="location.reload()" class="">Logout</button>
-        <button id="delete-account" class="danger">Delete account</button>
+      h1.textContent = `Welcome back, !`;
+
+      const name = document.createElement('span');
+      name.textContent = username;
+      name.className = `name-${username}@${config.instance_name}`;
+      h1.appendChild(namey);
+      h1.append('!');
+      
+      let HeaderHtml = `
+            <label>Status</label>
+            <input type="text" id="status" name="status" autocomplete="off" />
+            <button id="update-status" class="primary">Update status</button>
+            <br /><br />
+            <span class="account-dashboard">
+            <span class="account-actions">
+                <button onclick="location.href = '${PAGE_PATH}?logout';" class="">Switch account</button>
+                <button id="delete-account" class="danger">Delete account</button>
+            </span>
+        `;
+      
+      HeaderHtml += `
+      ${
+        username === config.instance_admin ? 
+        `    
+            <span class="account-settings">
+            <label for="admin-toggle">
+            Admin controls
+            <input type="checkbox" id="admin-toggle" name="admin-toggle" />
+            </label>
+        ` 
+        : ' '
+      }
+      </span>
       `;
+      
+      header.innerHTML = HeaderHtml;
+
+      const adminToggleEnabled = localStorage.getItem('labLoginAdmin') === 'true';
+      const adminToggle = document.querySelector('#admin-toggle');
+      if(adminToggle) {
+        adminToggle.checked = adminToggleEnabled;
+        adminToggle.addEventListener('change', () => {
+          localStorage.setItem('labLoginAdmin', adminToggle.checked);
+          const adminActions = document.querySelectorAll('.actions');
+          adminActions.forEach((v) => v.style.display = adminToggle.checked ? 'inline-block' : 'none')
+        });
+      }
+      
+      
       const deleteAccountButton = document.querySelector("#delete-account");
       deleteAccountButton.addEventListener("click", async () => {
         const confirmDelete = confirm(
@@ -113,9 +160,7 @@
           return;
         }
         loadingFeed.style.display = "block";
-        const response = await fetch(
-          "https://mittzy-loginredux_deleteaccount.web.val.run",
-          {
+        const response = await fetch(config.endpoints.delete, {
             method: "POST",
             body: JSON.stringify({ username, password }),
           }
@@ -160,9 +205,7 @@
       return;
     }
 
-    const response = await fetch(
-      "https://mittzy-loginredux_updatestatus.web.val.run",
-      {
+    const response = await fetch(config.endpoints.update, {
         method: "POST",
         body: JSON.stringify({ status, username, password }),
       }
@@ -192,36 +235,71 @@
   usernameInput.addEventListener("keydown", handleInputKeyDown);
   passwordInput.addEventListener("keydown", handleInputKeyDown);
 
+  let nameSet = new Set();
+  
   let refreshTimeout;
   let secondsLeft = 9;
-  async function pullUserStatuses() {
+  
+  async function resetRefreshTimer() {
     refreshSign.textContent = "Refreshing...";
     secondsLeft = 9;
     if (refreshTimeout !== undefined) {
       clearTimeout(refreshTimeout);
     }
-    // https://todepond-lablogingetusers.web.val.run
-    const response = await fetch(
-      "https://mittzy-loginredux_getusers.web.val.run"
-    );
+  }
+  async function pullUserStatuses() {
+    resetRefreshTimer();
 
     const entries = [];
+    const instances = await Promise.all(
+            config.instances.map(({feed, name}) =>
+                    fetch(feed)
+                            .then((res) => res.json())
+                            .then((feed) => ({name, feed}))
+            )
+    );
 
-    const json = await response.json();
-    for (const user of json) {
-      const [status, username, timestamp, id, isbanned] = user;
-      entries.push({ status, username, timestamp: new Date(timestamp), id, isbanned});
+    for (let instance of instances) {
+      for (let post of instance.feed) {
+        const [status, username, timestamp] = post;
+        if (new Date(timestamp) > new Date()) {
+          continue;
+        }
+        entries.push({
+          status,
+          username,
+          timestamp: new Date(timestamp),
+          instance: instance.name,
+        });
+      }
     }
 
     const sortedEntries = entries.sort((a, b) => b.timestamp - a.timestamp);
 
-    renderUserStatuses(sortedEntries);
+    renderUserStatuses(sortedEntries)
 
-    localStorage.setItem("labLoginUserStatuses", JSON.stringify(sortedEntries));
+    localStorage.setItem('labLoginUserStatuses', JSON.stringify(sortedEntries));
 
-    refreshSign.textContent = "Auto-refreshing in " + secondsLeft;
+    const rawUsers = localStorage.getItem('labLoginUserStatuses') ?? '[]';
+    let users = [];
+    try {
+      users = JSON.parse(rawUsers);
+    } catch (e) {
+      users = [];
+    }
+    const usernames = users.map((v) => v.username + '@' + v.instance);
+    nameSet = new Set(usernames);
 
-    refreshTimeout = setTimeout(handleTimer, 1000);
+    const localRefreshStatus = getLocalRefreshStatus();
+    if (localRefreshStatus) {
+      const localRefreshStatus = getLocalRefreshStatus();
+      if (localRefreshStatus) {
+        refreshSign.textContent = 'Auto-refreshing in ' + secondsLeft;
+        refreshTimeout = setTimeout(handleTimer, 1000);
+      } else {
+        refreshSign.textContent = 'Auto-refresh paused';
+      }
+    }
   }
 
   async function handleTimer() {
@@ -231,90 +309,397 @@
       await pullUserStatuses();
       return;
     }
-
-    refreshSign.textContent = "Auto-refreshing in " + secondsLeft;
-    if (refreshTimeout !== undefined) {
-      clearTimeout(refreshTimeout);
-    }
-
-    refreshTimeout = setTimeout(handleTimer, 1000);
   }
 
-  function renderUserStatuses(entries) {
-    const main = document.querySelector("main");
-    main.innerHTML = "";
-    for (const entry of entries) {
-      const p = document.createElement("p");
-      p.id = "status-" + entry.username;
-      const strong = document.createElement("strong");
-      strong.textContent = entry.username;
-      if (entry.username === "TodePond" || entry.username == "Rosy") {
-        strong.style.color = "var(--green)";
-      }
-      if (entry.username === "Rosy") {
-        strong.style.color = "var(--red)";
-      }
-      if (entry.isbanned === 1) {
-        strong.style.color = "var(--shade-5)";
-      }
-      p.appendChild(strong);
-      const br = document.createElement("br");
-      p.appendChild(br);
-      const span = document.createElement("span");
-      span.textContent = entry.status;
-      span.style.maxHeight = "90px";
-      span.style.overflowY = "auto";
-      // should wrap long words
-      span.style.wordWrap = "break-word";
-      span.style.display = "block";
-      if (entry.isbanned === 1) {
-        span.style.color = "var(--shade-5)";
-      }
-      p.appendChild(span);
-      if (
-        document.querySelector("#username")?.value === "TodePond" ||
-        document.querySelector("h1").textContent === "Welcome back, TodePond!" ||
-        document.querySelector("#username")?.value === "Rosy" ||
-        document.querySelector("h1").textContent === "Welcome back, Rosy!"
-      ) {
-        const banButton = document.createElement("button");
-        banButton.className = "danger";
-        banButton.textContent = "Ban";
-        banButton.addEventListener("click", async () => {
-          const confirmBan = confirm(
-            `Are you sure you want to ban ${entry.username}?`
-          );
-          if (!confirmBan) {
-            return;
+    refreshSign.textContent = "Auto-refreshing in " + secondsLeft;
+    if(refreshTimeout !== undefined) {
+      clearTimeout(refreshTimeout);
+    }
+    
+    refreshTimeout = setTimeout(handleTimer, 1000);
+    
+    function setRefreshStatus(on) {
+      if (on) {
+        setLocalRefreshStatus(true);
+        refreshSign.textContent = 'Auto-refreshing in ' + secondsLeft;
+        if (!getRefreshStatus()) {
+          refreshTimeout = setTimeout(handleTimer, 1000);
+        } else {
+          setLocalRefreshStatus(false);
+          refreshSign.textContent = 'Auto-refresh paused';
+          if (getRefreshStatus()) {
+            clearTimeout(refreshTimeout);
+            refreshTimeout = undefined;
           }
-          loadingFeed.style.display = "block";
-          const username = usernameInput.value;
-          const password = passwordInput.value;
-          const idofusertoban = entry.id;
-          const response = await fetch(
-            "https://mittzy-loginredux_banuser.web.val.run",
-            {
-              method: "POST",
-              body: JSON.stringify({
+        }
+      }
+    }
+
+    function getRefreshStatus() {
+      return refreshTimeout !== undefined;
+    }
+
+    function getLocalRefreshStatus() {
+      return localStorage.getItem('labLoginAutoRefresh') !== 'false';
+    }
+
+    function setLocalRefreshStatus(on) {
+      if (on) {
+        localStorage.setItem('labLoginAutoRefresh', 'true');
+      } else {
+        localStorage.setItem('labLoginAutoRefresh', 'false');
+      }
+    }
+    
+    function toggleRefresh() {
+      const status = getRefreshStatus();
+      setRefreshStatus(!status);
+    }
+    
+    if(!getLocalRefreshStatus()) {
+      setLocalRefreshStatus(false);
+    }
+
+  function renderUserStatuses(entries) {
+    const currentHash = window.location.hash;
+    const main = document.querySelector('main');
+    const statuses = document.querySelectorAll('.status');
+    let s = 0;
+    let e = 0;
+    
+    const actionses = document.querySelectorAll('.actions');
+    actionses.forEach((v) => (v.innerHTML = ''));
+    const userActionses = document.querySelectorAll('.user-actions');
+    userActionses.forEach((v) => (v.innerHTML = ''))
+    
+    while (e < entries.length) {
+      const entry = entries[e];
+      const status = statuses[s];
+      if(!status) {
+        break;
+      }
+      
+      status.className = 'post-' + entry.username + '@' + entry.instance;
+      status.classList.add('status');
+      status.classList.add('instance-' + entry.instance);
+      const strong = status.querySelector('strong');
+      status.id = 'post-' + entry.username + '@' + entry.instance;
+      strong.className = 'name-' + entry.username + '@' + entry.instance;
+      strong.textContent = entry.username + '@' + entry.instance;
+      const h3 = status.querySelector('h3');
+      h3.className = 'title-' + entry.username + '@' + entry.instance;
+      h3.classList.add('post-title');
+      
+      const span = status.querySelector('span');
+      span.innerHTML = getHtmlFromMarkdown(entry.status);
+      if (entry.username === config.instance_admin) {
+      }
+      span.className = 'status-' + entry.username + '@' + entry.instance;
+      
+      addUserActions({
+        userActionsElement: status.querySelector('.user-actions'),
+        username: entry.username,
+        loggedInUsername: usernameInput.value,
+        loggedInPassword: passwordInput.value,
+      });
+      maybeAddActions({
+        actionsElement: status.querySelector('.actions'),
+        password: passwordInput.value,
+        admin: usernameInput.value,
+        entry,
+      });
+      
+      const actions = status.querySelector('.actions');
+      actions.style.display = localStorage.getItem('labLoginAdmin') === 'true' ? 'inline-block' : 'none';
+      s++;
+      e++;
+    }
+    
+    while (s < statuses.length) {
+      statuses[s].remove();
+      s++;
+    }
+    
+    while (e < entries.length) {
+      const entry = entries[e];
+      const p = document.createElement('p');
+      p.className = 'post-' + entry.username + '@' + entry.instance;
+      p.classList.add('status');
+      const strong = document.createElement('strong');
+      strong.textContent = entry.username + '@' + entry.instance;
+      strong.className = 'name-' + entry.username + '@' + entry.instance;
+      p.id = 'post-' + entry.username + '@' + entry.instance;
+      const h3 = document.createElement('h3');
+      h3.className = 'title-' + entry.username + '@' + entry.instance;
+      h3.classList.add('post-title');
+      p.appendChild(h3);
+      h3.appendChild(strong);
+      const br = document.createElement('br');
+      p.appendChild(br);
+      const span = document.createElement('span');
+      span.className = 'status-' + entry.username + '@' + entry.instance;
+      span.innerHTML = getHtmlFromMarkdown(entry.status);
+      span.style.maxHeight = '90px';
+      span.style.overflowY = 'auto';
+      // should wrap long words
+      span.style.wordWrap = 'break-word';
+      span.style.display = 'block';
+      p.appendChild(span);
+      const div = document.createElement('div');
+      div.classList.add('actions');
+      maybeAddActions({
+        actionsElement: div,
+        password: passwordInput.value,
+        admin: usernameInput.value,
+        entry,
+      });
+      const userActions = document.createElement('div');
+      userActions.classList.add('user-actions');
+      p.appendChild(userActions);
+
+      addUserActions({
+        userActionsElement: userActions,
+        username: entry.username,
+        loggedInUsername: usernameInput.value,
+        loggedInPassword: passwordInput.value,
+      });
+
+      div.style.display = localStorage.getItem('labLoginAdmin') === 'true' ? 'inline-block' : 'none';
+      p.appendChild(div);
+      main.appendChild(p);
+      e++;
+    }
+    
+    if(currentHash) {
+      window.location.hash = currentHash;
+    }
+  }
+    
+  function maybeAddActions({ actionsElement, password, admin, entry}) {
+    const enabled = localStorage.getItem('labLoginAdmin') === 'true';
+    if (admin === config.instance_admin && entry.instance === config.instance_name) {
+      
+      const kickNameButton = document.CreateElement('button');
+      kickNameButton.classList.add('action-button');
+      kickNameButton.textContent = 'Kick name';
+      kickNameButton.addEventListener('click', () =>
+      handleModeration({
+        username: entry.username,
+        password,
+        admin,
+        type: 'kick',
+        target: 'name',
+      })
+      );
+
+      const kickStatusButton = document.createElement('button');
+      // banButton.className = "danger";
+      kickStatusButton.textContent = 'Kick status';
+      kickStatusButton.classList.add('action-button');
+      kickStatusButton.addEventListener('click', () =>
+              handleModeration({
                 username: entry.username,
                 password,
-                admin: username,
-                id: idofusertoban,
-              }),
-            }
-          );
-          const json = await response.json();
-          if (json.error) {
-            alert(json.error);
-          } else {
-            await pullUserStatuses();
-            loadingFeed.style.display = "none";
-          }
-        });
-        p.appendChild(banButton);
-      }
-      main.appendChild(p);
+                admin,
+                type: 'kick',
+                target: 'status',
+              })
+      );
+      const banNameButton = document.createElement('button');
+      banNameButton.className = 'danger';
+      banNameButton.classList.add('action-button');
+      banNameButton.textContent = 'Ban name';
+      banNameButton.addEventListener('click', () =>
+              handleModeration({
+                username: entry.username,
+                password,
+                admin,
+                type: 'ban',
+                target: 'name',
+              })
+      );
+
+      actionsElement.appendChild(kickNameButton);
+      actionsElement.appendChild(kickStatusButton);
+      actionsElement.appendChild(banNameButton);
     }
+  }
+
+  function handleModeration({ username, password, admin, type, target }) {
+    const confirmBan = confirm(
+            `Are you sure you want to ${type} ${username}'s ${target}? This action is irreversible.`
+    );
+    if (!confirmBan) {
+      return;
+    }
+  
+    loadingFeed.style.display = 'block';
+    fetch(config.endpoints.ban, {
+      method: 'POST',
+      body: JSON.stringify({ username, password, admin, type, target }),
+    })
+    .then((response) => response.json())
+    .then((json) => {
+      loadingFeed.style.display = 'none';
+      if(json.error){
+        alert(json.error);
+      } else {
+        pullUserStatuses();
+      }
+    });
+  }
+
+  function getHtmlFromMarkdown(markdown) {
+    let html = '';
+    let i = 0;
+
+    let blockquote = markdown.startsWith('>');
+    if (blockquote) html += '<blockquote>';
+
+    markdown = markdown.replaceAll('<', '').replaceAll('>', '').replaceAll('&', '');
+
+    let emphasisingAsterisk = false;
+    let emphasisingUnderscore = false;
+    let bolding = false;
+    let linking = false;
+    let linkTitling = false;
+    let linkTitle = '';
+    let linkPathing = false;
+    let linkPath = '';
+    let coding = false;
+
+    while (i < markdown.length) {
+      const character = markdown[i];
+      const nextCharacter = markdown[i + 1];
+      const nextTwoCharacters = markdown.slice(i, i + 2);
+
+      if (coding) {
+        if (character === '`') {
+          coding = false;
+          html += '</code>';
+          i++;
+          continue;
+        }
+        html += character;
+        i++;
+        continue;
+      }
+
+      if (character === '@') {
+        let found = false;
+        const snippet = markdown.slice(i + 1).split(/\s|\*|_|'|"|!|\.|,|\?/)[0];
+        // first test out all the non-space names
+        let result = '';
+        let foundName = '';
+        for (const name of nameSet) {
+          if (snippet === name) {
+            result = `<a onclick="window.targetyo()" href="#post-${name}" class="at-${name} name-${name} at">@${name}</a>`;
+            // i += name.length + 1;
+            foundName = name;
+            found = true;
+            break;
+          }
+        }
+
+        // but we should also test out the space names
+        for (const name of nameSet) {
+          const greedySnippet = markdown.slice(i + 1);
+          if (
+                  greedySnippet.startsWith(name + ' ') ||
+                  greedySnippet === name ||
+                  greedySnippet.startsWith(name + '*') ||
+                  greedySnippet.startsWith(name + '_') ||
+                  greedySnippet.startsWith(name + "'") ||
+                  greedySnippet.startsWith(name + '"') ||
+                  greedySnippet.startsWith(name + '!') ||
+                  greedySnippet.startsWith(name + '.') ||
+                  greedySnippet.startsWith(name + ',') ||
+                  greedySnippet.startsWith(name + '?')
+          ) {
+            result = `<a onclick="window.targetyo()" href="#post-${name}" class="at-${name} name-${name} at">@${name}</a>`;
+            // i += name.length + 1;
+            found = true;
+            foundName = name;
+            break;
+          }
+        }
+        if (found) {
+          html += result;
+          i += foundName.length + 1;
+          continue;
+        }
+      }
+
+      if (character === '`') {
+        coding = true;
+        html += '<code>';
+        i++;
+        continue;
+      }
+
+      if (character === '\\') {
+        if (nextCharacter !== undefined) {
+          html += nextCharacter;
+        }
+        i += 2;
+        continue;
+      }
+
+      if (nextTwoCharacters === '**') {
+        if (bolding) {
+          html += '</strong>';
+        } else {
+          html += '<strong>';
+        }
+        bolding = !bolding;
+        i += 2;
+        continue;
+      }
+
+      if (character === '*') {
+        if (emphasisingAsterisk) {
+          html += '</em>';
+        } else {
+          html += '<em>';
+        }
+        emphasisingAsterisk = !emphasisingAsterisk;
+        i++;
+        continue;
+      }
+
+      if (character === '_') {
+        if (emphasisingUnderscore) {
+          html += '</em>';
+        } else {
+          html += '<em>';
+        }
+        emphasisingUnderscore = !emphasisingUnderscore;
+        i++;
+        continue;
+      }
+
+      html += character;
+      i++;
+    }
+
+    // cleanup
+    if (bolding) {
+      html += '</strong>';
+    }
+    if (emphasisingAsterisk) {
+      html += '</em>';
+    }
+    if (emphasisingUnderscore) {
+      html += '</em>';
+    }
+    if (coding) {
+      html += '</code>';
+    }
+    if (blockquote) {
+      html += '</blockquote>';
+    }
+
+    return html;
   }
 
   const localStatuses = localStorage.getItem("labLoginUserStatuses") ?? "[]";
@@ -322,61 +707,4 @@
   await pullUserStatuses();
   loadingFeed.style.display = "none";
 </script>
-
-  <script>
-  const canvas = document.querySelector("canvas");
-  const context = canvas.getContext("2d");
-
-  document.body.onresize = () => {
-    canvas.width = window.innerWidth * devicePixelRatio;
-    canvas.height = window.innerHeight * devicePixelRatio;
-  };
-
-  document.body.onresize();
-
-  const bubbles = [];
-
-  const draw = () => {
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    context.strokeStyle = "#374362";
-    context.lineWidth = 5;
-    for (const raindrop of bubbles) {
-      context.beginPath();
-      context.arc(raindrop.x, raindrop.y, raindrop.size, 0, Math.PI * 2, false);
-      context.stroke();
-    }
-  };
-
-  const update = (delta) => {
-    if (Math.random() < delta * 0.5) {
-      const size = 50 + Math.random() * 50;
-      bubbles.push({
-        x: Math.random() * canvas.width,
-        y: canvas.height + size,
-        size,
-        speed: 50 + Math.random() * 50,
-      });
-    }
-
-    for (let i = 0; i < bubbles.length; i++) {
-      const bubble = bubbles[i];
-      bubble.y -= bubble.speed * delta;
-      if (bubble.y < -bubble.size) {
-        bubbles.splice(i, 1);
-        i--;
-      }
-    }
-  };
-
-  let lastTime = 0;
-  const loop = (time) => {
-    const delta = (time - lastTime) / 1000;
-    lastTime = time;
-    update(delta);
-    draw();
-    requestAnimationFrame(loop);
-  };
-
-  loop();
-  </script>
 </body>
