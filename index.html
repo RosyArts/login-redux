@@ -107,7 +107,7 @@
       const name = document.createElement('span');
       name.textContent = username;
       name.className = `name-${username}@${config.instance_name}`;
-      h1.appendChild(namey);
+      h1.appendChild(name);
       h1.append('!');
       
       let HeaderHtml = `
@@ -492,7 +492,7 @@
     const enabled = localStorage.getItem('labLoginAdmin') === 'true';
     if (admin === config.instance_admin && entry.instance === config.instance_name) {
       
-      const kickNameButton = document.CreateElement('button');
+      const kickNameButton = document.createElement('button');
       kickNameButton.classList.add('action-button');
       kickNameButton.textContent = 'Kick name';
       kickNameButton.addEventListener('click', () =>
