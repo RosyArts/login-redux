@@ -260,9 +260,10 @@
     );
 
     for (let instance of instances) {
+      if (!Array.isArray(instance.feed)) return
       for (let post of instance.feed) {
         const [status, username, timestamp] = post;
-        if (new Date(timestamp) > new Date()) {
+        if (new Date(timestamp)-18000000 > new Date()) {
           continue;
         }
         entries.push({
