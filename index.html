@@ -435,6 +435,11 @@
       h3.classList.add('post-title');
       p.appendChild(h3);
       h3.appendChild(strong);
+      const timestamp = document.createElement('i-have-no-clue-how-this-works')
+      timestamp.textContent = JSON.stringify(entry.timestamp);
+      timestamp.style.marginLeft = '20px';
+      timestamp.style.opacity = '0.2';
+      p.appendChild(timestamp);
       const br = document.createElement('br');
       p.appendChild(br);
       const span = document.createElement('span');
